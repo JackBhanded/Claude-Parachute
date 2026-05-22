@@ -3,6 +3,28 @@
 All notable changes to Claude Parachute are noted here. This project follows
 [semantic versioning](https://semver.org/).
 
+## [0.1.1] — 2026-05-23
+
+### Fixed
+
+- **The app no longer re-opens itself over and over.** When Auto-snapshot was on,
+  the Claude Code hook was registered with the path to the packaged app, so every
+  tool Claude ran re-launched the Parachute window instead of quietly taking a
+  snapshot — stacking copies in the taskbar. The launcher now routes any
+  subcommand (like the hook's `snapshot-hook`) to the command line and never opens
+  a window, and a frozen build registers its hook with a bare subcommand. Existing
+  mis-registered hooks are handled too (the old `-m claude_parachute` prefix is
+  stripped). Re-run `install-hooks` once on this version to rewrite the hook
+  cleanly.
+
+### Added
+
+- **Single-instance guard** — launching Parachute when a window is already open now
+  bows out quietly instead of opening a duplicate.
+- **A parachute tray icon** — the system-tray icon is now a little parachute, so
+  it's easy to tell apart from the other fleet tools at a glance. (The Claude logo
+  stays the brand mark in the window and the README.)
+
 ## [0.1.0] — 2026-05-22
 
 The first drop. A safety net for the changes `/rewind` can't see.

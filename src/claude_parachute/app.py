@@ -61,8 +61,30 @@ def _missing_pyside_message() -> str:
     )
 
 
+def _parachute_tray_svg(size=64):
+    """A clean little parachute glyph in Claude's orange. The tray icon uses this
+    (rather than the Claude logo) so Parachute is easy to tell apart from the
+    other fleet tools at a glance — they'd otherwise all show the same asterisk.
+    The Claude logo stays the brand mark in the window header and the README."""
+    o = _ORANGE
+    return (
+        f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" '
+        f'xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><title>Parachute</title>'
+        # canopy: a dome with three scallops along the bottom edge
+        f'<path d="M3 11 a9 8 0 0 1 18 0 a3 2.4 0 0 1 -6 0 a3 2.4 0 0 1 -6 0 '
+        f'a3 2.4 0 0 1 -6 0 z" fill="{o}"/>'
+        # rigging lines converging to the harness
+        f'<path d="M4.2 11.4 L11.3 16.4 M12 11.6 L12 16.4 M19.8 11.4 L12.7 16.4" '
+        f'stroke="{o}" stroke-width="1.1" fill="none" stroke-linecap="round"/>'
+        # the little harness/payload
+        f'<path d="M10.7 16.4 h2.6 l-.5 3.1 a0.8 0.8 0 0 1 -1.6 0 z" fill="{o}"/>'
+        f'</svg>'
+    )
+
+
 def _make_tray_icon():
-    """Build a QIcon from the Claude logo (rendered SVG), with a dot fallback."""
+    """Build the tray QIcon from the parachute glyph (rendered SVG), with a dot
+    fallback if SVG rendering isn't available."""
     from PySide6.QtCore import Qt
     from PySide6.QtGui import QIcon, QPainter, QPixmap
     pm = QPixmap(64, 64)
@@ -70,7 +92,7 @@ def _make_tray_icon():
     try:
         from PySide6.QtCore import QByteArray
         from PySide6.QtSvg import QSvgRenderer
-        r = QSvgRenderer(QByteArray(_claude_logo_svg(64).encode("utf-8")))
+        r = QSvgRenderer(QByteArray(_parachute_tray_svg(64).encode("utf-8")))
         p = QPainter(pm)
         r.render(p)
         p.end()
@@ -288,6 +310,19 @@ def main(start_in_tray: bool = False) -> int:
             self._status.setText(f"Dashboard: {out}")
 
     app = QApplication.instance() or QApplication(sys.argv)
+
+    # Single-instance guard: if a Parachute window is already running, don't open
+    # a second one — just bow out quietly. (Belt-and-braces against anything that
+    # might launch the app more than once.)
+    try:
+        from PySide6.QtCore import QSharedMemory
+        _lock = QSharedMemory("ClaudeParachuteSingleInstance")
+        if not _lock.create(1):
+            return 0
+        app._parachute_lock = _lock   # keep it alive for the process lifetime
+    except Exception:
+        pass
+
     win = ParachuteWindow()
 
     if QSystemTrayIcon.isSystemTrayAvailable():

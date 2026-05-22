@@ -11,6 +11,6 @@ undoable. Plus a kill switch for runaway agents.
 Recovery-first, and never destructive itself.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 __author__ = "Jack Bhanded"
 __license__ = "MIT"

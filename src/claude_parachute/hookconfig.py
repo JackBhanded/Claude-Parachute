@@ -51,6 +51,12 @@ class HookResult:
 
 
 def hook_command(python: Optional[str] = None) -> str:
+    # When running as a PyInstaller .exe, sys.executable IS the bundled app — it
+    # can't run "-m claude_parachute". Register the exe with a bare subcommand
+    # instead; the launcher routes any subcommand to the CLI (never the window),
+    # so the hook quietly snapshots rather than popping open the app.
+    if python is None and getattr(sys, "frozen", False):
+        return f'"{sys.executable}" snapshot-hook'
     py = python or sys.executable
     return f'"{py}" -m claude_parachute snapshot-hook'
 
