@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Run Claude Parachute from this folder without worrying about PATH.
+# Works whether or not it's been pip-installed (adds bundled src to PYTHONPATH).
+here="$(cd "$(dirname "$0")" && pwd)"
+PYTHONPATH="$here/src:$PYTHONPATH" exec python3 -m claude_parachute "$@"
