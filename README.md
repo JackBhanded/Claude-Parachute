@@ -133,9 +133,18 @@ A little set of friendly tools for people who build with Claude:
 
 ## About the author
 
-Built by **Jack Bhanded** ([@JackBhanded](https://github.com/JackBhanded)) — part
-of an open-source fleet of small, friendly tools that make building with Claude
-calmer and safer.
+<table>
+<tr>
+<td width="120" valign="top">
+<img src="https://www.SawYouAtSinai.com/_layouts/images/team/jackbio.jpg" width="100" alt="Jack Bhanded">
+</td>
+<td valign="top">
+
+Built by **[Jack Bhanded](https://www.sawyouatsinai.com/jewish-dating-team.aspx)**, Lead developer and architect at [SawYouAtSinai](https://www.sawyouatsinai.com). Devotee of innovative technologies and gadgets. Built this because Claude Code's `/rewind` kept missing the changes that worried him most — the ones made through the Bash tool — and he wanted a safety net he could trust.
+
+</td>
+</tr>
+</table>
 
 ## License
 
