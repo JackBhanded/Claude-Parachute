@@ -121,6 +121,41 @@ Parachute is built to be impossible to regret:
   all the default options.
 - (For the typed commands only: **Python 3.9 or newer**.)
 
+## How it differs from the alternatives
+
+The starting point is real, not invented: Claude Code's own docs say its
+`/rewind` tracks only the files Claude edits with its Write/Edit tools — **not**
+the things a command changes — and even suggest you "use git for destructive
+operations." That's the exact gap Parachute fills. Here's how it compares to the
+other safety nets out there:
+
+- **Other editors' built-in checkpoints** — [Cursor](https://docs.cursor.com/agent/chat/checkpoints)
+  and [Windsurf](https://windsurf.com) snapshot before each AI edit, but (like
+  `/rewind`) they don't capture what a terminal command does. If you work in those
+  editors, their built-ins are lovely for undoing *edits* — just not command
+  side-effects.
+- **[Cline](https://docs.cline.bot/features/checkpoints)** is the closest cousin:
+  it keeps a separate "shadow" history (not your real git) and saves after each
+  step, commands included. The catch is it's tied to VS Code. Parachute brings
+  that same idea to **Claude Code**, as a standalone app.
+- **[Aider](https://aider.chat/docs/git.html)** auto-commits every change and has
+  `/undo` — but it commits into *your real git history*, which not everyone wants.
+  Parachute keeps its checkpoints in their own private spot and never touches your
+  project's git.
+- **[ccundo](https://github.com/RonitSachdev/ccundo)** is the nearest Claude Code
+  tool, with nice granular, preview-first undo; it aims to cover bash commands too.
+  If you want fine-grained "undo just this one step," it's well worth a look — it's
+  a different flavour from Parachute's whole-project checkpoints.
+- **Auto-commit hooks / [gitwatch](https://github.com/gitwatch/gitwatch)** can
+  catch everything (bash included), but they usually commit into your real repo
+  and clutter its history. Parachute deliberately stays out of your git.
+
+The combination Parachute is built around — a private shadow history, made for
+Claude Code, saving after **every** step *including commands*, never touching your
+real git, and always undoable — is the spot none of the others quite fill. If one
+of the above fits your setup better, genuinely use it; Parachute is here for the
+Claude Code user who wants the command side-effects covered too.
+
 ## Part of the fleet
 
 A little set of friendly tools for people who build with Claude:
