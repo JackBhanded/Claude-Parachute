@@ -30,6 +30,23 @@ HOOK_TAG = "claude_parachute"
 HOOK_EVENTS = ("PostToolUse", "SessionStart")
 
 
+def _command_is_ours(command: str) -> bool:
+    """True if a hook command is one of ours, in EITHER form.
+
+    We register two shapes depending on how Parachute runs:
+      * from source : ``"<python>" -m claude_parachute snapshot-hook``
+      * frozen .exe  : ``"...\\Claude Parachute.exe" snapshot-hook``
+
+    The frozen form contains "Claude Parachute" (space + capitals), NOT the
+    literal ``claude_parachute`` — so a bare ``HOOK_TAG in command`` test misses
+    it, which once left the .exe's hook un-removable. We match case-insensitively
+    on BOTH "parachute" and "snapshot-hook" so we recognise either form yet never
+    grab an unrelated hook that merely mentions one of the words.
+    """
+    c = str(command).lower()
+    return "parachute" in c and "snapshot-hook" in c
+
+
 def claude_code_home() -> Path:
     import os
     override = os.environ.get("CLAUDE_CONFIG_DIR")
@@ -86,7 +103,7 @@ def _dump(data) -> str:
 
 
 def _event_has_ours(arr) -> bool:
-    return any(isinstance(h, dict) and HOOK_TAG in str(h.get("command", ""))
+    return any(isinstance(h, dict) and _command_is_ours(h.get("command", ""))
                for g in arr if isinstance(g, dict) for h in g.get("hooks", []))
 
 
@@ -144,7 +161,7 @@ def uninstall_hooks(claude_home: Path) -> HookResult:
                 new_groups.append(group)
                 continue
             kept = [h for h in group.get("hooks", [])
-                    if not (isinstance(h, dict) and HOOK_TAG in str(h.get("command", "")))]
+                    if not (isinstance(h, dict) and _command_is_ours(h.get("command", "")))]
             if len(kept) != len(group.get("hooks", [])):
                 removed = True
             if kept:
@@ -169,7 +186,10 @@ def hooks_installed(claude_home: Path) -> bool:
     sp = settings_path(claude_home)
     if not sp.exists():
         return False
-    try:
-        return HOOK_TAG in sp.read_text(encoding="utf-8", errors="ignore")
-    except OSError:
+    data, err = _load(sp)
+    if err or not isinstance(data, dict):
         return False
+    hooks = data.get("hooks")
+    if not isinstance(hooks, dict):
+        return False
+    return any(_event_has_ours(arr) for arr in hooks.values() if isinstance(arr, list))

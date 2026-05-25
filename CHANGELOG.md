@@ -16,6 +16,15 @@ All notable changes to Claude Parachute are noted here. This project follows
   mis-registered hooks are handled too (the old `-m claude_parachute` prefix is
   stripped). Re-run `install-hooks` once on this version to rewrite the hook
   cleanly.
+- **Turning it off now actually sticks.** The hook detector only recognised the
+  `claude_parachute` (python) form, so when the app registered itself by its
+  packaged `.exe` name it couldn't find — and therefore couldn't remove — its own
+  hook, and `install-hooks` would stack duplicates. The matcher now recognises
+  both forms, so uninstall removes it and install never duplicates.
+- **`Stop the storm` rescue script** — if an older build is still re-opening on
+  you, double-click `Stop the storm.bat` (or run `python stop-the-storm.py`). It
+  strips only Parachute's hooks from your Claude settings, makes a backup first,
+  and leaves everything else untouched.
 
 ### Added
 

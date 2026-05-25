@@ -9,12 +9,16 @@ import pytest
 
 from claude_parachute.hookconfig import (
     HOOK_TAG,
+    _command_is_ours,
     hook_command,
     hooks_installed,
     install_hooks,
     settings_path,
     uninstall_hooks,
 )
+
+# The exact shape the packaged build registers (space + capitals, no underscore).
+EXE_CMD = r'"C:\Users\Jack\AppData\Local\Programs\Claude Parachute\Claude Parachute.exe" snapshot-hook'
 
 
 def read(path: Path):
@@ -79,3 +83,37 @@ def test_hooks_installed_flag(tmp_path):
 def test_hook_command_quotes_python():
     cmd = hook_command(python="/path with space/python")
     assert cmd.startswith('"/path with space/python"') and "snapshot-hook" in cmd
+
+
+# --- regression: the "window storm" bug ---------------------------------------
+# When Parachute ran as the packaged .exe, the hook was registered as
+# '"...\Claude Parachute.exe" snapshot-hook' — which does NOT contain the literal
+# "claude_parachute". The old matcher missed it, so uninstall couldn't remove it
+# and install kept stacking duplicates → a window opened on every tool use.
+
+def test_command_matcher_recognises_both_forms():
+    assert _command_is_ours('"py" -m claude_parachute snapshot-hook') is True
+    assert _command_is_ours(EXE_CMD) is True
+
+
+def test_command_matcher_ignores_unrelated_hooks():
+    assert _command_is_ours("echo hi") is False
+    assert _command_is_ours('"py" -m claude_compass hook') is False
+    # mentions parachute but isn't our snapshot hook → leave it alone
+    assert _command_is_ours("parachute --help") is False
+
+
+def test_uninstall_removes_frozen_exe_hook(tmp_path):
+    # Simulate the packaged build having registered itself by the .exe name.
+    install_hooks(tmp_path, command=EXE_CMD)
+    assert hooks_installed(tmp_path) is True          # detected despite no underscore-tag
+    assert uninstall_hooks(tmp_path).status == "removed"
+    assert hooks_installed(tmp_path) is False
+    # ...and the file no longer references our hook in any form.
+    assert "snapshot-hook" not in settings_path(tmp_path).read_text(encoding="utf-8")
+
+
+def test_install_idempotent_for_frozen_exe_hook(tmp_path):
+    install_hooks(tmp_path, command=EXE_CMD)
+    # A second session-start install must NOT stack a duplicate.
+    assert install_hooks(tmp_path, command=EXE_CMD).status == "unchanged"

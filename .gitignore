@@ -20,6 +20,7 @@ Thumbs.db
 push-to-github.ps1
 push-fleet-crosslinks.ps1
 push-fleet-alternatives.ps1
+push-fleet-updates.ps1
 _setup-repo.ps1
 _alternatives-research.md
 LAUNCH.md
