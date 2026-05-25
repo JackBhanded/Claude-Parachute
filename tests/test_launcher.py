@@ -68,5 +68,8 @@ def test_hook_command_uses_bare_subcommand_when_frozen(monkeypatch):
     monkeypatch.setattr(sys, "frozen", True, raising=False)
     monkeypatch.setattr(sys, "executable", r"C:\Tools\Claude Parachute.exe", raising=False)
     cmd = hook_command()
-    assert cmd == r'"C:\Tools\Claude Parachute.exe" snapshot-hook'
-    assert "-m claude_parachute" not in cmd   # the line that caused the window storm
+    # Forward slashes, not backslashes: the hook often runs through Git Bash on
+    # Windows, where backslashes get eaten. Path is normalised so it runs anywhere.
+    assert cmd == '"C:/Tools/Claude Parachute.exe" snapshot-hook'
+    assert "\\" not in cmd                     # bash-safe
+    assert "-m claude_parachute" not in cmd    # the line that caused the window storm

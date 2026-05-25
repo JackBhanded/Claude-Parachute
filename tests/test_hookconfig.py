@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -13,9 +14,24 @@ from claude_parachute.hookconfig import (
     hook_command,
     hooks_installed,
     install_hooks,
+    prune_stale_hooks,
     settings_path,
     uninstall_hooks,
 )
+
+
+def _gone_cmd():
+    """A Parachute hook command whose exe is missing FOR THE CURRENT OS."""
+    if os.name == "nt":
+        return r'"C:\definitely\gone\Claude Parachute.exe" snapshot-hook'
+    return '"/definitely/gone/parachute-bin" snapshot-hook'
+
+
+def _other_os_cmd():
+    """A Parachute hook command for the OTHER OS (must never be pruned here)."""
+    if os.name == "nt":
+        return '"/opt/parachute/parachute-bin" snapshot-hook'
+    return r'"C:\Users\x\Claude Parachute.exe" snapshot-hook'
 
 # The exact shape the packaged build registers (space + capitals, no underscore).
 EXE_CMD = r'"C:\Users\Jack\AppData\Local\Programs\Claude Parachute\Claude Parachute.exe" snapshot-hook'
@@ -114,6 +130,62 @@ def test_uninstall_removes_frozen_exe_hook(tmp_path):
 
 
 def test_install_idempotent_for_frozen_exe_hook(tmp_path):
-    install_hooks(tmp_path, command=EXE_CMD)
-    # A second session-start install must NOT stack a duplicate.
-    assert install_hooks(tmp_path, command=EXE_CMD).status == "unchanged"
+    # Point the hook at a real existing exe (as in real use), so the self-heal
+    # keeps it and a second session-start install does NOT stack a duplicate.
+    exe = tmp_path / "Claude Parachute.exe"
+    exe.write_text("")
+    cmd = f'"{exe}" snapshot-hook'
+    install_hooks(tmp_path, command=cmd)
+    assert install_hooks(tmp_path, command=cmd).status == "unchanged"
+
+
+# --- self-heal: prune hooks whose exe has gone missing ------------------------
+
+def test_hook_command_uses_forward_slashes():
+    # Git Bash eats backslashes — the registered path must use forward slashes.
+    cmd = hook_command(python=r"C:\Python311\python.exe")
+    assert "\\" not in cmd and "snapshot-hook" in cmd and "C:/Python311/python.exe" in cmd
+
+
+def test_prune_removes_missing_exe(tmp_path):
+    sp = settings_path(tmp_path)
+    sp.write_text(json.dumps({"hooks": {"PostToolUse": [{"hooks": [
+        {"type": "command", "command": _gone_cmd()},
+        {"type": "command", "command": "echo keep-me"},
+    ]}]}}), encoding="utf-8")
+    res = prune_stale_hooks(tmp_path)
+    assert res.status == "healed"
+    cmds = [h["command"] for g in read(sp)["hooks"].get("PostToolUse", []) for h in g["hooks"]]
+    assert "echo keep-me" in cmds
+    assert not any("snapshot-hook" in c for c in cmds)
+
+
+def test_prune_keeps_other_os_hook(tmp_path):
+    # A path valid for the OTHER OS must be left alone (Cowork+CLI share settings).
+    sp = settings_path(tmp_path)
+    sp.write_text(json.dumps({"hooks": {"SessionStart": [{"hooks": [
+        {"type": "command", "command": _other_os_cmd()},
+    ]}]}}), encoding="utf-8")
+    assert prune_stale_hooks(tmp_path).status == "clean"
+    assert "snapshot-hook" in sp.read_text(encoding="utf-8")
+
+
+def test_prune_keeps_python_form(tmp_path):
+    # The "-m claude_parachute" form has no single bundled exe to miss → never pruned.
+    sp = settings_path(tmp_path)
+    sp.write_text(json.dumps({"hooks": {"PostToolUse": [{"hooks": [
+        {"type": "command", "command": '"py" -m claude_parachute snapshot-hook'},
+    ]}]}}), encoding="utf-8")
+    assert prune_stale_hooks(tmp_path).status == "clean"
+
+
+def test_install_self_heals_moved_exe(tmp_path):
+    # Re-arming after the exe moved: the stale hook is pruned, the fresh one lands.
+    sp = settings_path(tmp_path)
+    sp.write_text(json.dumps({"hooks": {"PostToolUse": [{"hooks": [
+        {"type": "command", "command": _gone_cmd()},
+    ]}]}}), encoding="utf-8")
+    install_hooks(tmp_path, command='"py" -m claude_parachute snapshot-hook')
+    cmds = [h["command"] for g in read(sp)["hooks"]["PostToolUse"] for h in g["hooks"]]
+    assert any("-m claude_parachute" in c for c in cmds)
+    assert not any("gone" in c for c in cmds)

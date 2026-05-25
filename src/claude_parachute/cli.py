@@ -29,6 +29,7 @@ from .hookconfig import (
     hook_command,
     hooks_installed,
     install_hooks,
+    prune_stale_hooks,
     settings_path,
     uninstall_hooks,
 )
@@ -189,21 +190,31 @@ def cmd_snapshot_hook(args) -> int:
     no output."""
     cwd = os.getcwd()
     label = "auto checkpoint"
+    event = ""
     try:
         if not sys.stdin.isatty():
             raw = sys.stdin.read()
             if raw and raw.strip():
                 data = json.loads(raw)
                 cwd = data.get("cwd") or cwd
-                tn = data.get("tool_name") or data.get("hook_event_name") or ""
+                event = data.get("hook_event_name") or ""
+                tn = data.get("tool_name") or event or ""
                 if tn:
                     label = f"after {tn}"
     except Exception:
-        pass
+        event = ""
     try:
         ShadowRepo(cwd).snapshot_if_changed(label)
     except Exception:
         pass
+    # Self-heal once per session: if any of our hooks point at an exe that's now
+    # missing (e.g. an old build you moved), quietly drop it. Never breaks: any
+    # error is swallowed and we still exit 0.
+    if event == "SessionStart":
+        try:
+            prune_stale_hooks(claude_code_home())
+        except Exception:
+            pass
     return 0
 
 
@@ -226,6 +237,7 @@ def cmd_dashboard(args) -> int:
 
 def cmd_doctor(args) -> int:
     r = _repo()
+    healed = prune_stale_hooks(claude_code_home())   # self-heal moved-exe hooks
     _out(f"{CHUTE} Parachute check-up")
     _out("")
     _out(f"  Python:     {sys.version.split()[0]}")
@@ -234,6 +246,8 @@ def cmd_doctor(args) -> int:
     _out(f"  Armed:      {'yes' if r.exists() else 'no (run: parachute init)'}")
     _out(f"  Hooks:      {'on' if hooks_installed(claude_code_home()) else 'off'}")
     _out(f"  Hook cmd:   {hook_command()}")
+    if healed.status == "healed":
+        _out(f"  Self-heal:  {healed.message}")
     return 0
 
 

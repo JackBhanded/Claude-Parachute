@@ -3,6 +3,20 @@
 All notable changes to Claude Parachute are noted here. This project follows
 [semantic versioning](https://semver.org/).
 
+## [0.1.3] — 2026-05-25
+
+### Fixed
+- **Self-healing hooks — no more nagging about a moved exe.** If you ran Parachute
+  from Downloads (or anywhere) and later moved or deleted it, the stale hook used
+  to fail after every tool with a `No such file or directory` error. Parachute now
+  **prunes any of its own hooks whose exe has gone missing** — on app launch, at
+  session start, during `doctor`, and before re-arming. It's OS-aware, so if you
+  run both Cowork (Linux) and the CLI (Windows) off one settings file, neither
+  side wrongly removes a hook that's valid for the other.
+- **Bash-safe hook path.** Claude Code often runs hooks through Git Bash on
+  Windows, where `C:\...\` backslashes get eaten. The hook is now registered with
+  forward slashes, so it runs cleanly in cmd, PowerShell, *and* bash.
+
 ## [0.1.2] — 2026-05-25
 
 The window-storm fix in 0.1.1 worked, but turning Parachute *off* didn't always

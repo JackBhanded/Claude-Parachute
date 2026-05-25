@@ -23,7 +23,8 @@ from .safewrite import write_text_atomic
 
 __all__ = [
     "HookResult", "hook_command", "settings_path", "claude_code_home",
-    "install_hooks", "uninstall_hooks", "hooks_installed", "HOOK_TAG", "HOOK_EVENTS",
+    "install_hooks", "uninstall_hooks", "hooks_installed", "prune_stale_hooks",
+    "HOOK_TAG", "HOOK_EVENTS",
 ]
 
 HOOK_TAG = "claude_parachute"
@@ -72,10 +73,43 @@ def hook_command(python: Optional[str] = None) -> str:
     # can't run "-m claude_parachute". Register the exe with a bare subcommand
     # instead; the launcher routes any subcommand to the CLI (never the window),
     # so the hook quietly snapshots rather than popping open the app.
+    #
+    # Forward slashes, not backslashes: Claude Code often runs hooks through Git
+    # Bash on Windows, where "C:\Users\..." gets its backslashes eaten. Forward
+    # slashes work in cmd, PowerShell AND bash, so the hook runs everywhere.
     if python is None and getattr(sys, "frozen", False):
-        return f'"{sys.executable}" snapshot-hook'
-    py = python or sys.executable
+        exe = sys.executable.replace("\\", "/")
+        return f'"{exe}" snapshot-hook'
+    py = (python or sys.executable).replace("\\", "/")
     return f'"{py}" -m claude_parachute snapshot-hook'
+
+
+def _exe_path_from_command(command: str) -> Optional[str]:
+    """Pull the executable/interpreter path out of a hook command, or None for
+    the ``python -m`` form (there's no single bundled file that can go missing)."""
+    c = str(command).strip()
+    if " -m " in c:
+        return None
+    if c.startswith('"'):
+        end = c.find('"', 1)
+        if end > 1:
+            return c[1:end]
+    return c.split(" ")[0] if c else None
+
+
+def _path_is_missing_on_this_os(p: str) -> bool:
+    """True only if ``p`` looks like a path for the CURRENT OS and isn't there.
+
+    Crucial for users who run both Cowork (Linux) and the CLI (Windows) off one
+    shared settings.json: a Linux run must NOT prune a Windows-`.exe` hook just
+    because that path is meaningless on Linux (it's valid for the Windows CLI),
+    and vice-versa. So each OS only judges paths that look like its own.
+    """
+    import os
+    looks_windows = (len(p) > 1 and p[1] == ":") or "\\" in p or p.lower().endswith(".exe")
+    if os.name == "nt":
+        return looks_windows and not os.path.exists(p)
+    return (not looks_windows) and not os.path.exists(p)
 
 
 def settings_path(claude_home: Path) -> Path:
@@ -107,8 +141,64 @@ def _event_has_ours(arr) -> bool:
                for g in arr if isinstance(g, dict) for h in g.get("hooks", []))
 
 
+def prune_stale_hooks(claude_home: Path) -> HookResult:
+    """Self-heal: drop any Parachute hook whose exe has gone missing.
+
+    The classic nag: you ran the .exe from Downloads, it armed itself there, then
+    the file moved/was cleaned up — leaving a hook Claude Code tries (and fails) to
+    run after every tool. This removes only OUR hooks, only when their exe is
+    genuinely missing *for the current OS*, and never touches anything else.
+    """
+    path = settings_path(claude_home)
+    data, err = _load(path)
+    if err:
+        return HookResult(status="refused", path=path, message=err)
+    if not data or not isinstance(data.get("hooks"), dict):
+        return HookResult(status="clean", path=path, message="No hooks to check.")
+
+    hooks = data["hooks"]
+    removed = 0
+    for event in list(hooks.keys()):
+        arr = hooks.get(event)
+        if not isinstance(arr, list):
+            continue
+        new_groups: List[dict] = []
+        for group in arr:
+            if not isinstance(group, dict):
+                new_groups.append(group)
+                continue
+            kept = []
+            for h in group.get("hooks", []):
+                cmd = h.get("command", "") if isinstance(h, dict) else ""
+                if _command_is_ours(cmd):
+                    exe = _exe_path_from_command(cmd)
+                    if exe and _path_is_missing_on_this_os(exe):
+                        removed += 1
+                        continue
+                kept.append(h)
+            if kept:
+                g = dict(group); g["hooks"] = kept; new_groups.append(g)
+        if new_groups:
+            hooks[event] = new_groups
+        else:
+            hooks.pop(event, None)
+    if isinstance(hooks, dict) and not hooks:
+        data.pop("hooks", None)
+
+    if removed == 0:
+        return HookResult(status="clean", path=path,
+                          message="No stale Parachute hooks — all good.")
+    word = "hook" if removed == 1 else "hooks"
+    bak = write_text_atomic(path, _dump(data), backup=True)
+    return HookResult(status="healed", path=path, backup_path=bak,
+                      message=f"Cleaned up {removed} stale Parachute {word} pointing at a missing exe.")
+
+
 def install_hooks(claude_home: Path, command: Optional[str] = None) -> HookResult:
     """Add our snapshot hook to every event in HOOK_EVENTS (idempotent)."""
+    # Self-heal first: if a previous hook points at a now-missing exe (e.g. you
+    # ran it from Downloads then moved it), drop it so re-arming repoints cleanly.
+    prune_stale_hooks(claude_home)
     path = settings_path(claude_home)
     command = command or hook_command()
     data, err = _load(path)

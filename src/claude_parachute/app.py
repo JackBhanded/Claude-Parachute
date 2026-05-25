@@ -145,6 +145,14 @@ def main(start_in_tray: bool = False) -> int:
 
     model = ParachuteModel()
 
+    # Self-heal on launch: drop any of our hooks whose exe has gone missing
+    # (e.g. an old build you ran from Downloads then moved). Never fatal.
+    try:
+        from .hookconfig import claude_code_home, prune_stale_hooks
+        prune_stale_hooks(claude_code_home())
+    except Exception:
+        pass
+
     class ParachuteWindow(QWidget):
         def __init__(self):
             super().__init__()
