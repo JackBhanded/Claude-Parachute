@@ -3,6 +3,29 @@
 All notable changes to Claude Parachute are noted here. This project follows
 [semantic versioning](https://semver.org/).
 
+## [0.1.2] — 2026-05-25
+
+The window-storm fix in 0.1.1 worked, but turning Parachute *off* didn't always
+stick. This release closes that gap and adds a one-click rescue for anyone still
+stuck on an older build.
+
+### Fixed
+
+- **Turning it off now actually sticks.** The hook detector only recognised the
+  `claude_parachute` (python) form, so when the packaged build registered itself
+  by its `.exe` name (`"…\Claude Parachute.exe" snapshot-hook`) it couldn't find —
+  and therefore couldn't remove — its own hook, while re-installs quietly stacked
+  duplicates. The matcher now recognises both forms, so `uninstall-hooks` (and the
+  in-app toggle) removes it cleanly and install never duplicates.
+
+### Added
+
+- **`Stop the storm` rescue script** — if an older build is still re-opening on
+  you faster than you can update, double-click `Stop the storm.bat` (or run
+  `python stop-the-storm.py`). It removes only Parachute's hooks from your Claude
+  settings, backs the file up first, and leaves everything else untouched. Safe to
+  run twice.
+
 ## [0.1.1] — 2026-05-23
 
 ### Fixed
@@ -16,15 +39,6 @@ All notable changes to Claude Parachute are noted here. This project follows
   mis-registered hooks are handled too (the old `-m claude_parachute` prefix is
   stripped). Re-run `install-hooks` once on this version to rewrite the hook
   cleanly.
-- **Turning it off now actually sticks.** The hook detector only recognised the
-  `claude_parachute` (python) form, so when the app registered itself by its
-  packaged `.exe` name it couldn't find — and therefore couldn't remove — its own
-  hook, and `install-hooks` would stack duplicates. The matcher now recognises
-  both forms, so uninstall removes it and install never duplicates.
-- **`Stop the storm` rescue script** — if an older build is still re-opening on
-  you, double-click `Stop the storm.bat` (or run `python stop-the-storm.py`). It
-  strips only Parachute's hooks from your Claude settings, makes a backup first,
-  and leaves everything else untouched.
 
 ### Added
 
@@ -66,4 +80,6 @@ The first drop. A safety net for the changes `/rewind` can't see.
   created since.
 - Honours `.gitignore`; never snapshots `.git/` or `.parachute/`.
 
+[0.1.2]: https://github.com/JackBhanded/claude-parachute/releases/tag/v0.1.2
+[0.1.1]: https://github.com/JackBhanded/claude-parachute/releases/tag/v0.1.1
 [0.1.0]: https://github.com/JackBhanded/claude-parachute/releases/tag/v0.1.0
