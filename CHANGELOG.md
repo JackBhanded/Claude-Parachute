@@ -7,7 +7,14 @@ All notable changes to Claude Parachute are noted here. This project follows
 
 The window-storm fix in 0.1.1 worked, but turning Parachute *off* didn't always
 stick. This release closes that gap and adds a one-click rescue for anyone still
-stuck on an older build.
+stuck on an older build. It also brings the fleet's new look.
+
+### Changed
+- **A gorgeous new look (elevated Claude-brew + dark mode).** The dashboard is now
+  frosted glassmorphism over a soft drifting aurora — gradient stats that count up,
+  a glassy snapshot timeline, a prominent "pull the cord" accent card, and a sleek
+  dark mode. The double-click window is restyled to match (gradient buttons, glass
+  list, soft shadows, light/dark toggle).
 
 ### Fixed
 
@@ -20,6 +27,10 @@ stuck on an older build.
 
 ### Added
 
+- **Run at startup** — a "Run at startup" toggle in the tray menu pins Parachute
+  to your per-user Windows startup (no admin needed), so your safety net is armed
+  the moment you log in. Greyed out when running from source; only the packaged
+  `.exe` can pin itself.
 - **`Stop the storm` rescue script** — if an older build is still re-opening on
   you faster than you can update, double-click `Stop the storm.bat` (or run
   `python stop-the-storm.py`). It removes only Parachute's hooks from your Claude
